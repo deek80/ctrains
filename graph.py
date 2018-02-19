@@ -78,14 +78,11 @@ class Graph:
             depth += 1
 
     def shortest_distance(self, source_node, target_node):
-        if source_node == target_node:  # then Dijkstra's method fails (chooses the 0-length path)
-            return self._shortest_distance_simple(source_node, target_node)
+        """ Public facing method for shortest distance """
         return self._shortest_distance_dijkstra(source_node, target_node)
 
     def _shortest_distance_simple(self, source_node, target_node):
-        """ Find the shortest distance (by total edge weight) between two nodes
-            using an exhaustive search.
-        """
+        """ Find the shortest distance (by total edge weight) between two nodes using an exhaustive search.  """
         max_depth = len(self.nodes)  # no reasonable path would visit the same node twice
         distances = (self.distance(path) for path in self.all_paths_from(source_node, max_depth=max_depth)
                                          if path[-1] == target_node)
@@ -95,10 +92,23 @@ class Graph:
         """ Use Dijkstra's algorithm to efficiently find the shortest distance between two distinct nodes """
         unvisited_nodes = self.nodes.copy()
         total_distance = {node: None for node in self.nodes}
-        total_distance[source_node] = 0  # since we start here
 
-        current_node = source_node
+        if source_node == target_node:
+            # we need to start at one of the neighbors of `source_node` to avoid picking the 0-length path
+            for neighbor in self._neighbors(source_node):
+                total_distance[neighbor] = self.edge_weights[(source_node, neighbor)]
+        else:
+            # just start at the `source_node`
+            total_distance[source_node] = 0
+
+
         while unvisited_nodes:
+            # choose the closest unvisited node to be the `current_node`
+            reachable_nodes = (node for node in unvisited_nodes if total_distance[node] is not None)
+            current_node = min(reachable_nodes, key=lambda node: total_distance[node], default=None)
+            if not current_node:  # no available path!
+                return None
+
             # look at all the unvisited neighbors and update their distance if necessary
             for neighbor in unvisited_nodes.intersection(self._neighbors(current_node)):
                 old_total = total_distance[neighbor]
@@ -106,14 +116,9 @@ class Graph:
                 if old_total is None or new_total < old_total:
                     total_distance[neighbor] = new_total
 
+            # now that all the neighbors are updated, this node is "visited"
+            unvisited_nodes.remove(current_node)
+
             # once we visit the target_node, we're done
             if current_node == target_node:
                 return total_distance[target_node]
-            # otherwise mark this node as visitied and contine on
-            unvisited_nodes.remove(current_node)
-
-            # now we choose the closest unvisited node to be the `current_node` and repeat
-            reachable_nodes = (node for node in unvisited_nodes if total_distance[node] is not None)
-            current_node = min(reachable_nodes, key=lambda node: total_distance[node], default=None)
-            if not current_node:  # no available path!
-                return None
